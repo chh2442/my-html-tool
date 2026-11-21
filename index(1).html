@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学生成绩IQR离群点检测与稳健处理系统 V1.0</title>
+<style>
+:root{
+  --bg:#FFF6E3; --panel:#FFFFFF; --panel2:#FFF3D6; --line:#E8DCC4;
+  --ink:#3A3432; --tx:#3A3432; --tx2:#94897B;
+  --acc:#FF5A4E; --acc2:#FFC93C; --purple:#9B6EF3; --blue:#4FA8E8; --green:#6BCB77; --pink:#FF8FB1;
+  --ok:#3BAA6E; --warn:#E8A200; --bad:#E8433A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;font-size:14px;line-height:1.6}
+header{padding:22px 28px 16px;border-bottom:3px solid var(--ink);background:linear-gradient(120deg,#FF5A4E 0%,#FF7A45 45%,#FFC93C 100%)}
+h1{font-size:22px;letter-spacing:1px;color:#fff;text-shadow:1.5px 1.5px 0 rgba(58,52,50,.45)}
+h1 .ver{font-size:12px;color:#fff;background:#9B6EF3;border:2px solid #fff;border-radius:20px;padding:1px 10px;margin-left:8px;vertical-align:3px;display:inline-block}
+.sub{color:#FFF3D6;font-size:12px;margin-top:5px;text-shadow:1px 1px 0 rgba(58,52,50,.3)}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;padding:10px 28px;border-bottom:3px solid var(--ink);background:var(--panel2);position:sticky;top:0;z-index:9}
+.tabs button{background:#fff;border:2px solid var(--ink);color:var(--tx);padding:7px 15px;border-radius:14px;cursor:pointer;font-size:13px;font-weight:700;box-shadow:2px 2px 0 var(--ink);transition:transform .1s}
+.tabs button:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.tabs button.on{background:var(--acc);border-color:var(--ink);color:#fff;box-shadow:2px 2px 0 var(--ink)}
+.tabs button.on .no{color:var(--acc2)}
+.tabs button .no{opacity:.65;margin-right:4px;font-size:11px}
+main{padding:20px 28px 90px;max-width:1280px;margin:0 auto}
+section{display:none}
+section.on{display:block}
+.card{background:var(--panel);border:2.5px solid var(--ink);border-radius:18px;padding:16px 18px;margin-bottom:14px;box-shadow:4px 4px 0 rgba(58,52,50,.12)}
+.card h3{font-size:15px;margin-bottom:10px;color:var(--acc)}
+.card h3 small{color:var(--tx2);font-weight:400;margin-left:8px}
+.grid{display:grid;gap:12px}
+.g6{grid-template-columns:repeat(6,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.g6,.g4{grid-template-columns:repeat(3,1fr)}.g3,.g2{grid-template-columns:1fr}}
+.kpi{background:var(--panel2);border:2px solid var(--ink);border-radius:14px;padding:12px 14px;box-shadow:3px 3px 0 rgba(58,52,50,.1)}
+.kpi .v{font-size:22px;font-weight:800;color:var(--ink)}
+.kpi .l{font-size:12px;color:var(--tx2);margin-top:2px}
+.kpi.hot{background:#FFE9D2}
+.kpi.hot .v{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1.5px dashed var(--line);padding:7px 10px;text-align:left;white-space:nowrap}
+th{color:var(--ink);font-weight:700;background:var(--panel2);position:sticky;top:0}
+tr:hover td{background:#FFF0C9}
+.tag{display:inline-block;font-size:11px;border-radius:9px;padding:1px 9px;border:1.5px solid}
+.t-err{background:#FFE1DE;color:var(--bad);border-color:var(--bad)}
+.t-hi{background:#FFF2CC;color:var(--warn);border-color:var(--warn)}
+.t-lo{background:#DFF2FF;color:#2C86C8;border-color:#4FA8E8}
+.t-miss{background:#EDE4FF;color:#7C52E0;border-color:var(--purple)}
+.t-ok{background:#DFF5E7;color:var(--ok);border-color:var(--green)}
+select,input[type=text],input[type=number],input[type=password],textarea{
+  background:#fff;border:2px solid var(--ink);color:var(--tx);border-radius:10px;padding:6px 10px;font-size:13px;font-family:inherit}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--acc2)}
+button.act{background:var(--acc);border:2px solid var(--ink);color:#fff;padding:8px 16px;border-radius:14px;cursor:pointer;font-size:13px;font-weight:700;margin-right:8px;margin-bottom:6px;box-shadow:3px 3px 0 var(--ink);transition:transform .1s}
+button.act.ghost{background:#fff;color:var(--tx)}
+button.act.warn{background:var(--acc2);color:var(--ink)}
+button.act:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+button.act:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.bar label{color:var(--tx2)}
+input[type=range]{accent-color:var(--acc);width:220px}
+.kval{font-weight:800;color:var(--acc);min-width:36px;display:inline-block}
+.note{color:var(--tx2);font-size:12px;margin-top:8px}
+.insight{border-left:5px solid var(--acc2);background:var(--panel2);padding:10px 14px;border-radius:0 12px 12px 0;font-size:13px;margin-top:10px}
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--panel2);border-top:3px solid var(--ink);color:var(--tx2);font-size:12px;padding:8px 28px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#aiBtn{position:fixed;right:22px;bottom:52px;background:linear-gradient(135deg,var(--purple),var(--pink));border:3px solid #fff;color:#fff;width:56px;height:56px;border-radius:50%;font-size:24px;cursor:pointer;box-shadow:0 6px 18px rgba(155,110,243,.45), 0 0 0 2px var(--ink);z-index:20}
+#aiPanel{position:fixed;right:22px;bottom:52px;width:360px;max-width:calc(100vw - 44px);height:460px;background:var(--panel);border:3px solid var(--ink);border-radius:20px;display:none;flex-direction:column;z-index:21;box-shadow:6px 6px 0 rgba(58,52,50,.18)}
+#aiPanel.open{display:flex}
+#aiPanel .hd{padding:12px 14px;border-bottom:2px dashed var(--line);display:flex;justify-content:space-between;align-items:center}
+#aiPanel .bd{flex:1;overflow-y:auto;padding:12px 14px}
+#aiPanel .ft{padding:10px 12px;border-top:2px dashed var(--line);display:flex;gap:8px}
+#aiPanel .ft input{flex:1}
+.msg{margin-bottom:10px;max-width:92%}
+.msg .who{font-size:11px;color:var(--tx2)}
+.msg .bub{background:var(--panel2);border:2px solid var(--ink);border-radius:14px;padding:8px 11px;margin-top:3px;white-space:pre-wrap;font-size:13px}
+.msg.me .bub{background:#FFE1DE;margin-left:auto}
+.msg.me{margin-left:auto;text-align:left}
+.scrollbox{max-height:420px;overflow:auto;border:2px solid var(--ink);border-radius:14px}
+.flex2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.flex2{grid-template-columns:1fr}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--tx2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+ul.kn{padding-left:20px;color:var(--tx2);font-size:13px}
+ul.kn li{margin-bottom:5px}
+.bar-sep{width:2px;height:24px;background:var(--line);display:inline-block;margin:0 4px;border-radius:2px}
+.kbd{background:#DFF2FF;border:1.5px solid var(--blue);border-radius:8px;padding:1px 7px;font-size:12px;color:#2C86C8}
+@media(max-width:640px){
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding:10px 14px}
+  .tabs button{white-space:nowrap;flex:0 0 auto}
+  main{padding:14px 14px 90px}
+  header{padding:16px 16px 10px}
+  footer{padding:8px 14px;flex-direction:column;gap:2px}
+  .bar{gap:8px}
+  th,td{padding:6px 7px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🖍️ 学生成绩 IQR 离群点检测与稳健处理系统 <span class="ver">V1.0</span></h1>
+  <div class="sub">学生成绩离群点检测与稳健处理 · 纯前端本地运行 · 数据不出浏览器</div>
+</header>
+
+<div class="tabs" id="tabs">
+  <button data-t="0" class="on"><span class="no">01</span>数据概览</button>
+  <button data-t="1"><span class="no">02</span>IQR 检测</button>
+  <button data-t="2"><span class="no">03</span>3σ 检测</button>
+  <button data-t="3"><span class="no">04</span>双法对照</button>
+  <button data-t="4"><span class="no">05</span>稳健策略</button>
+  <button data-t="5"><span class="no">06</span>敏感性分析</button>
+  <button data-t="6"><span class="no">07</span>复核清单</button>
+  <button data-t="7"><span class="no">08</span>产物导出</button>
+  <button data-t="8"><span class="no">09</span>关于窗</button>
+</div>
+
+<main>
+<!-- 01 数据概览 -->
+<section class="on" id="s0">
+  <div class="bar">
+    <button class="act" onclick="document.getElementById('csvFile').click()">导入本地 CSV</button>
+    <input type="file" id="csvFile" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
+    <button class="act ghost" onclick="loadSample()">恢复示例数据</button>
+    <span class="bar-sep"></span>
+    <input type="text" id="addName" placeholder="姓名" style="width:90px">
+    <input type="number" id="addScore" placeholder="成绩" min="0" max="1000" style="width:80px">
+    <button class="act" style="margin:0" onclick="addRow()">＋ 添加记录</button>
+    <span class="note" id="dataInfo"></span>
+  </div>
+  <div class="card"><h3>核心统计量 <small>基于有效成绩（缺失不参与计算）</small></h3>
+    <div class="grid g6" id="kpiRow"></div>
+    <div class="insight" id="ovInsight"></div>
+  </div>
+  <div class="flex2">
+    <div class="card"><h3>成绩分布直方图</h3><div id="histBox"></div></div>
+    <div class="card"><h3>箱线图与 IQR 阈值带</h3><div id="boxBox"></div></div>
+  </div>
+  <div class="card"><h3>数据明细 <small id="detailCnt"></small></h3>
+    <div class="scrollbox"><table id="tblAll"></table></div>
+  </div>
+</section>
+
+<!-- 02 IQR 检测 -->
+<section id="s1">
+  <div class="card"><h3>检测参数</h3>
+    <div class="bar">
+      <label>倍数 k = <span class="kval" id="kv">1.5</span></label>
+      <input type="range" id="kSlider" min="0.5" max="3" step="0.25" value="1.5" oninput="onK()">
+      <span class="note">规则：<span class="kbd">Q1 − k·IQR</span> ~ <span class="kbd">Q3 + k·IQR</span> 之外判定为离群</span>
+    </div>
+    <div class="grid g4" id="iqrKpi"></div>
+  </div>
+  <div class="card"><h3>IQR 离群清单 <small id="iqrCnt"></small></h3>
+    <div class="scrollbox"><table id="tblIqr"></table></div>
+    <div class="insight" id="iqrInsight"></div>
+  </div>
+</section>
+
+<!-- 03 3σ 检测 -->
+<section id="s2">
+  <div class="card"><h3>检测参数</h3>
+    <div class="bar">
+      <label>倍数 z = <span class="kval" id="zv">3.0</span></label>
+      <input type="range" id="zSlider" min="1" max="4" step="0.25" value="3" oninput="onZ()">
+      <span class="note">规则：<span class="kbd">μ − z·s</span> ~ <span class="kbd">μ + z·s</span> 之外判定为离群</span>
+    </div>
+    <div class="grid g4" id="sigKpi"></div>
+  </div>
+  <div class="card"><h3>3σ 离群清单 <small id="sigCnt"></small></h3>
+    <div class="scrollbox"><table id="tblSig"></table></div>
+    <div class="insight" id="sigInsight"></div>
+  </div>
+</section>
+
+<!-- 04 双法对照 -->
+<section id="s3">
+  <div class="card"><h3>两法并列结论（k=1.5，z=3）</h3>
+    <div class="grid g4" id="cmpKpi"></div>
+    <table id="tblCmp" style="margin-top:12px"></table>
+    <div class="insight" id="cmpInsight"></div>
+  </div>
+  <div class="card"><h3>不一致记录（单列）</h3>
+    <div class="scrollbox"><table id="tblDiff"></table></div>
+    <div class="note">差异根源：极端值 990 分把均值拉高、标准差放大，3σ 区间过宽而"漏检"真实高分；IQR 基于分位数、对极端值更稳健。</div>
+  </div>
+</section>
+
+<!-- 05 稳健策略 -->
+<section id="s4">
+  <div class="card"><h3>三类稳健处理策略对比 <small>剔除 / 截断 / 替换 · 对照"不处理"基准</small></h3>
+    <table id="tblStrategy"></table>
+    <div class="insight">截断与替换保持样本量不变；剔除仅建议用于<b>确认的录入错误</b>。名次翻转统计的是策略处理前后名次发生变化的学生人数。</div>
+  </div>
+  <div class="card"><h3>名次影响明细（前 15 名对照）</h3>
+    <div class="scrollbox"><table id="tblRank"></table></div>
+  </div>
+</section>
+
+<!-- 06 敏感性分析 -->
+<section id="s5">
+  <div class="card"><h3>IQR 倍数 k 扫描</h3><table id="tblK"></table>
+    <div class="note">k 越大阈值带越宽、离群越少；观察离群集合是否稳定。</div></div>
+  <div class="card"><h3>3σ 倍数 z 扫描</h3><table id="tblZ"></table>
+    <div class="note">z 增大时 3σ 区间快速变宽，受极端值影响更明显。</div></div>
+  <div class="card"><h3>档位—离群条数对照图</h3><div id="sensChart"></div></div>
+</section>
+
+<!-- 07 复核清单 -->
+<section id="s6">
+  <div class="card"><h3>人工复核清单 <small>只标记、绝不自动删除 · 请逐条核查后选择结论</small></h3>
+    <table id="tblReview"></table>
+    <div class="insight">分类规则：超出 <span class="kbd">[0,100]</span> → 录入错误；高于 IQR 上限 → 高分离群；低于 IQR 下限 → 低分待复核；成绩为空 → 缺失。复核结论仅在本次浏览会话内保存，跑完请到"产物导出"存档。</div>
+  </div>
+</section>
+
+<!-- 08 产物导出 -->
+<section id="s7">
+  <div class="card"><h3>导出产物</h3>
+    <div class="bar">
+      <button class="act" onclick="expReport()">导出检测报告 (HTML)</button>
+      <button class="act" onclick="expCsv('summary')">导出汇总表 (CSV)</button>
+      <button class="act" onclick="expCsv('detail')">导出明细表 (CSV)</button>
+      <button class="act" onclick="expCsv('review')">导出复核清单 (CSV)</button>
+      <button class="act ghost" onclick="window.print()">打印 / 另存 PDF</button>
+    </div>
+    <div class="insight">数据只保存在浏览器内存里，<b>刷新页面会丢失</b>（含导入的数据与复核结论）。跑完检测请务必点"导出结果"存档；导出的 CSV 可用 Excel/WPS 直接打开。</div>
+  </div>
+  <div class="card"><h3>报告预览</h3>
+    <div id="repPreview" style="color:var(--tx2);font-size:13px"></div>
+  </div>
+</section>
+
+<!-- 09 关于窗 -->
+<section id="s8">
+  <div class="card"><h3>版本与能力</h3>
+    <table>
+      <tr><th style="width:160px">项目</th><th>说明</th></tr>
+      <tr><td>当前版本</td><td>V1.0（网页版 · 单文件 HTML 仪表盘，2026-11 上线）</td></tr>
+      <tr><td>应用形态</td><td>自主研发 · 单文件网页版工具（纯前端，未使用低代码平台）</td></tr>
+      <tr><td>技术实现</td><td>原生 HTML / CSS / JavaScript 单文件实现，零外部依赖，浏览器直接打开</td></tr>
+      <tr><td>九大页签</td><td>数据概览 → IQR 检测 → 3σ 检测 → 双法对照 → 稳健策略 → 敏感性分析 → 复核清单 → 产物导出 → 关于窗，共享状态、同步刷新</td></tr>
+      <tr><td>检测能力</td><td>IQR 四分位距法 + 3σ 均值标准差法双法并列，单列不一致记录</td></tr>
+      <tr><td>处理策略</td><td>剔除 / 截断 / 替换三类稳健策略，对比统计量与名次翻转</td></tr>
+      <tr><td>复核原则</td><td>可解释人工复核：只标记、生成清单，绝不自动删除</td></tr>
+      <tr><td>数据安全</td><td>计算全部在本地浏览器完成，不上传数据、不依赖网络服务</td></tr>
+    </table>
+  </div>
+  <div class="card"><h3>知识点覆盖（教学演示）</h3>
+    <ul class="kn">
+      <li>描述统计：均值、标准差、四分位数、中位数、偏度</li>
+      <li>IQR 四分位距检测与阈值敏感性（倍数 k 扫描）</li>
+      <li>3σ 法（均值±z倍标准差）及其对极端值的敏感性</li>
+      <li>双法对照思想：稳健性与可解释性的平衡、不一致记录分析</li>
+      <li>偏态分布与极端值对均值/标准差/名次的影响</li>
+      <li>缺失数据识别与处理、稳健处理策略（剔除/截断/替换）</li>
+      <li>人工复核流程与结果归档导出</li>
+    </ul>
+  </div>
+  <div class="card"><h3>使用提示</h3>
+    <div class="note">
+      · 三种入口：桌面端（Python+Tkinter）、命令行批量导出（run_export.py）、浏览器网页版（本页），口径统一。<br>
+      · 网页版内置 60 条示例数据（含 990 分录入错误、99 分真实高分与 3 条缺失记录），可导入本地 CSV 覆盖。<br>
+      · 右下角 AI 助手为可选功能：不填密钥时使用内置口径问答库，核心计算完全不受影响。
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <span>IQR 离群点检测与稳健处理系统 V1.0 · 纯前端本地运行</span>
+  <span>⚠ 数据仅存于浏览器内存，刷新会丢失 · 跑完记得"导出结果"存档</span>
+</footer>
+
+<button id="aiBtn" title="AI 助手（可选）" onclick="toggleAI()">🤖</button>
+<div id="aiPanel">
+  <div class="hd"><b>AI 助手 · 口径问答</b>
+    <span><input type="password" id="aiKey" placeholder="API Key（可选）" style="width:130px;font-size:11px">
+    <button class="act ghost" style="padding:3px 8px" onclick="toggleAI()">×</button></span>
+  </div>
+  <div class="bd" id="aiBody"></div>
+  <div class="ft"><input type="text" id="aiInput" placeholder="例如：为什么 99 分没被判离群？" onkeydown="if(event.key==='Enter')askAI()">
+  <button class="act" style="margin:0" onclick="askAI()">发送</button></div>
+</div>
+
+<script>
+/* ===================== 示例数据 ===================== */
+var SAMPLE=[
+["250101","林晓东",54],["250102","陈雨桐",56],["250103","黄子睿",56],["250104","吴思颖",59],["250105","郑博文",62],
+["250106","许佳琪",63],["250107","沈天佑",63],["250108","卢晓芸",63],["250109","姜浩然",64],["250110","唐雨欣",64],
+["250111","韩志强",64],["250112","冯诗涵",65],["250113","曹俊杰",65],["250114","彭雅静",65],["250115","萧立诚",66],
+["250116","程馨月",66],["250117","罗建辉",67],["250118","梁静怡",68],["250119","宋子墨",68],["250120","谢明轩",68],
+["250121","董雨薇",68],["250122","苏振宇",68],["250123","何嘉怡",69],["250124","高子涵",69],["250125","郭星辰",69],
+["250126","马欣然",69],["250127","蒋浩宇",69],["250128","蔡诗琪",69],["250129","余俊哲",69],["250130","杜晓彤",70],
+["250131","侯明杰",70],["250132","钟语嫣",71],["250133","汪子航",71],["250134","田梦瑶",71],["250135","石伟豪",71],
+["250136","姚思远",72],["250137","潘佳宁",73],["250138","尹晨曦",73],["250139","邱子豪",73],["250140","贺雨桐",73],
+["250141","邹文博",77],["250142","严心怡",78],["250143","傅俊驰",78],["250144","戴佳琪",78],["250145","聂浩轩",78],
+["250146","简雨欣",78],["250147","饶明轩",78],["250148","温梓涵",79],["250149","蓝志远",79],["250150","祁梦洁",79],
+["250151","章睿泽",79],["250152","范嘉懿",99],["250153","赵天翔",990],["250154","上官明轩",92],["250155","皇甫静姝",88],
+["250156","方睿哲",85],["250157","钟乐怡",null],["250158","邵子谦",null],["250159","任思琪",null],["250160","孟繁星",79]
+];
+
+/* ===================== 状态 ===================== */
+var rows = [];              // {id,name,score}
+var review = {};            // id -> 复核结论
+var K = 1.5, Z = 3;
+var reviewOptions = ["待复核","确认录入错误","确认真实成绩","已修正","忽略"];
+
+function loadSample(){
+  rows = SAMPLE.map(function(r){return {id:r[0],name:r[1],score:r[2]};});
+  review = {};
+  refresh();
+}
+
+/* ---- 记录增删（小程序式交互） ---- */
+var addSeq = 9000;
+function addRow(){
+  var name=document.getElementById("addName").value.trim();
+  var raw=document.getElementById("addScore").value.trim();
+  var score=(raw===""||isNaN(parseFloat(raw)))?null:parseFloat(raw);
+  addSeq++;
+  rows.push({id:"NEW"+addSeq,name:name||("学生"+addSeq),score:score});
+  document.getElementById("addName").value="";
+  document.getElementById("addScore").value="";
+  refresh();
+}
+function delRow(i){
+  var r=rows[i]; if(!r) return;
+  if(!confirm("确认删除记录："+r.name+"（"+(r.score===null?"缺失":r.score)+"分）？")) return;
+  rows.splice(i,1); refresh();
+}
+
+/* ===================== 统计计算（core） ===================== */
+function validScores(){ return rows.filter(function(r){return r.score!==null && !isNaN(r.score);}).map(function(r){return r.score;}); }
+
+function quantile(arr,p){ // 线性插值
+  var a=arr.slice().sort(function(x,y){return x-y;}), n=a.length;
+  if(n===0) return null;
+  var idx=(n-1)*p, lo=Math.floor(idx), hi=Math.ceil(idx);
+  if(lo===hi) return a[lo];
+  return a[lo]+(a[hi]-a[lo])*(idx-lo);
+}
+function mean(a){var s=0;for(var i=0;i<a.length;i++)s+=a[i];return a.length?s/a.length:0;}
+function stddev(a){var m=mean(a),s=0;for(var i=0;i<a.length;i++)s+=(a[i]-m)*(a[i]-m);return a.length>1?Math.sqrt(s/a.length):0;}
+function skewness(a){
+  var n=a.length; if(n<3) return 0;
+  var m=mean(a), m2=0, m3=0;
+  for(var i=0;i<n;i++){var d=a[i]-m;m2+=d*d;m3+=d*d*d;}
+  m2/=n; m3/=n;
+  return m2>0? m3/Math.pow(m2,1.5):0;
+}
+
+function computeAll(){
+  var all=rows, vs=validScores().sort(function(x,y){return x-y;});
+  var q1=quantile(vs,0.25), med=quantile(vs,0.5), q3=quantile(vs,0.75);
+  var iqr=q3-q1, lo=q1-K*iqr, hi=q3+K*iqr;
+  var mu=mean(vs), sd=stddev(vs), zlo=mu-Z*sd, zhi=mu+Z*sd;
+  var iqrOut=rows.filter(function(r){return r.score!==null&&(r.score<lo||r.score>hi);});
+  var sigOut=rows.filter(function(r){return r.score!==null&&(r.score<zlo||r.score>zhi);});
+  return {
+    n:rows.length, nValid:vs.length, nMiss:rows.length-vs.length,
+    mean:mu, sd:sd, min:vs[0], max:vs[vs.length-1],
+    q1:q1, med:med, q3:q3, iqr:iqr, lo:lo, hi:hi,
+    mu:mu, zlo:zlo, zhi:zhi,
+    skew:skewness(vs),
+    iqrOut:iqrOut, sigOut:sigOut,
+    inter:iqrOut.filter(function(r){return sigOut.indexOf(r)>=0;}),
+    onlyIqr:iqrOut.filter(function(r){return sigOut.indexOf(r)<0;}),
+    onlySig:sigOut.filter(function(r){return iqrOut.indexOf(r)<0;})
+  };
+}
+
+function classify(r,S){
+  if(r.score===null||isNaN(r.score)) return "缺失";
+  if(r.score<0||r.score>100) return "录入错误";
+  if(r.score>S.hi) return "高分离群";
+  if(r.score<S.lo) return "低分待复核";
+  return "正常";
+}
+
+function rankMap(scores){ // desc rank among valid
+  var sorted=scores.slice().sort(function(a,b){return b-a;});
+  var m={};
+  sorted.forEach(function(s,i){ if(!(s in m)) m[s]=i+1; });
+  return m;
+}
+
+/* 策略：0不处理 1剔除 2截断 3替换 —— 针对 IQR 离群值 */
+function strategyStats(S){
+  var base=validScores();                       // 全部有效成绩
+  var outScores=S.iqrOut.map(function(r){return r.score;});
+  var med=quantile(base.filter(function(x){return outScores.indexOf(x)<0;}),0.5);
+  var res=[];
+  res.push(mk("不处理",base));
+  res.push(mk("剔除",base.filter(function(x){return outScores.indexOf(x)<0;})));
+  res.push(mk("截断",base.map(function(x){return Math.max(S.lo,Math.min(S.hi,x));})));
+  res.push(mk("替换",base.map(function(x){return outScores.indexOf(x)>=0?med:x;})));
+  return res;
+
+  function mk(name,arr){
+    var m1=rankMap(base), m2=rankMap(arr), flips=0;
+    base.forEach(function(x){
+      if(m1[x]!==undefined&&m2[x]!==undefined&&m1[x]!==m2[x]) flips++;
+    });
+    return {name:name,n:arr.length,mean:mean(arr),sd:stddev(arr),flips:flips};
+  }
+}
+
+/* ===================== 渲染 ===================== */
+function f2(x){return (Math.round(x*100)/100).toFixed(2);}
+function f1(x){return (Math.round(x*10)/10).toFixed(1);}
+function tag(t){
+  var cls={"录入错误":"t-err","高分离群":"t-hi","低分待复核":"t-lo","缺失":"t-miss","正常":"t-ok"}[t];
+  return '<span class="tag '+cls+'">'+t+'</span>';
+}
+
+function refresh(){
+  var S=computeAll();
+  renderOverview(S); renderIqr(S); renderSig(S); renderCmp(S);
+  renderStrategy(S); renderSens(S); renderReview(S); renderReport(S);
+}
+
+/* ---- 01 数据概览 ---- */
+function renderOverview(S){
+  document.getElementById("dataInfo").textContent=
+    "当前数据："+S.n+" 条记录（有效 "+S.nValid+" · 缺失 "+S.nMiss+"）";
+  var kpi=[["记录总数",S.n],["有效成绩",S.nValid],["均值 μ",f2(S.mean)],["标准差 s",f2(S.sd)],
+           ["最小值",S.min],["最大值",S.max]];
+  document.getElementById("kpiRow").innerHTML=kpi.map(function(k){
+    return '<div class="kpi'+(k[0]==="最大值"&&S.max>100?" hot":"")+'"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>';
+  }).join("");
+  document.getElementById("ovInsight").innerHTML=
+    "四分位数：Q1="+f1(S.q1)+" · 中位数="+f1(S.med)+" · Q3="+f1(S.q3)+" · IQR="+f1(S.iqr)+
+    " · 偏度="+f2(S.skew)+"（"+(S.skew>0.5?"显著右偏，存在极端高分拉动":S.skew<-0.5?"左偏":"基本对称")+"）。"+
+    (S.max>100?"检测到超出 [0,100] 的分值（"+S.max+" 分），提示疑似录入错误。":"");
+  // 明细
+  var t='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>分类</th><th style="width:60px">操作</th></tr>';
+  rows.forEach(function(r,i){
+    var c=classify(r,S);
+    t+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td>'+(r.score===null?"—":r.score)+'</td><td>'+tag(c)+'</td>'+
+       '<td><a href="javascript:void(0)" onclick="delRow('+i+')" style="color:var(--bad);text-decoration:none">删除</a></td></tr>';
+  });
+  var tb=document.getElementById("tblAll"); tb.innerHTML=t;
+  document.getElementById("detailCnt").textContent="共 "+rows.length+" 条";
+  drawHist(S); drawBox(S);
+}
+
+function drawHist(S){
+  var vs=validScores();
+  var bins={}; for(var b=40;b<=100;b+=5){bins[b+"-"+(b+5)]=0;}
+  var outLow=0,outHigh=0;
+  vs.forEach(function(x){
+    if(x>100){outHigh++;return;} if(x<0){outLow++;return;}
+    var b=Math.floor(x/5)*5; if(b<40)b=40; if(b>=100)b=95;
+    var key=b+"-"+(b+5); if(!(key in bins)) bins[key]=0; bins[key]++;
+  });
+  var keys=Object.keys(bins), mx=Math.max(1,Math.max.apply(null,keys.map(function(k){return bins[k];})));
+  var w=460,h=230,pad=36,bw=(w-pad*2)/keys.length;
+  var svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%">';
+  svg+='<line x1="'+pad+'" y1="'+(h-24)+'" x2="'+(w-pad)+'" y2="'+(h-24)+'" stroke="#E8DCC4"/>';
+  keys.forEach(function(k,i){
+    var v=bins[k], bh=(h-60)*v/mx, x=pad+i*bw+2;
+    var col=k==="95-100"?"#FF5A4E":"#FFC93C";
+    svg+='<rect x="'+x+'" y="'+(h-24-bh)+'" width="'+(bw-4)+'" height="'+Math.max(bh,v?2:0)+'" rx="3" fill="'+col+'" opacity="0.85"/>';
+    if(v>0) svg+='<text x="'+(x+(bw-4)/2)+'" y="'+(h-28-bh)+'" fill="#94897B" font-size="10" text-anchor="middle">'+v+'</text>';
+    svg+='<text x="'+(x+(bw-4)/2)+'" y="'+(h-10)+'" fill="#94897B" font-size="9" text-anchor="middle">'+k+'</text>';
+  });
+  svg+='<text x="'+(w-6)+'" y="'+(h-30)+'" fill="#E8433A" font-size="11" text-anchor="end">超100分: '+outHigh+'</text>';
+  svg+='</svg>';
+  document.getElementById("histBox").innerHTML=svg;
+}
+
+function drawBox(S){
+  var w=460,h=230,padL=46,padR=30;
+  var lo=Math.min(S.min-10,0), hiV=S.max;
+  function X(v){return padL+(v-lo)/(hiV-lo)*(w-padL-padR);}
+  var svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%">';
+  // 轴
+  for(var v=0;v<=hiV;v+=Math.ceil(hiV/8/50)*50||50){
+    svg+='<line x1="'+X(v)+'" y1="30" x2="'+X(v)+'" y2="150" stroke="#EFE4CE"/>';
+    svg+='<text x="'+X(v)+'" y="165" fill="#94897B" font-size="9" text-anchor="middle">'+v+'</text>';
+  }
+  var y=95;
+  // 阈值带
+  svg+='<rect x="'+X(S.lo)+'" y="'+(y-28)+'" width="'+(X(S.hi)-X(S.lo))+'" height="56" fill="#FFC93C" opacity="0.30"/>';
+  svg+='<line x1="'+X(S.lo)+'" y1="'+(y-28)+'" x2="'+X(S.lo)+'" y2="'+(y+28)+'" stroke="#4FA8E8" stroke-dasharray="4 3"/>';
+  svg+='<line x1="'+X(S.hi)+'" y1="'+(y-28)+'" x2="'+X(S.hi)+'" y2="'+(y+28)+'" stroke="#4FA8E8" stroke-dasharray="4 3"/>';
+  // 箱线
+  var q1x=X(S.q1),q3x=X(S.q3),mx=X(S.med);
+  svg+='<line x1="'+X(S.min)+'" y1="'+y+'" x2="'+q1x+'" y2="'+y+'" stroke="#94897B"/>';
+  svg+='<line x1="'+q3x+'" y1="'+y+'" x2="'+X(Math.min(S.max,S.hi))+'" y2="'+y+'" stroke="#94897B"/>';
+  svg+='<rect x="'+q1x+'" y="'+(y-20)+'" width="'+(q3x-q1x)+'" height="40" fill="#FF5A4E" opacity="0.30" stroke="#E8433A"/>';
+  svg+='<line x1="'+mx+'" y1="'+(y-20)+'" x2="'+mx+'" y2="'+(y+20)+'" stroke="#3A3432" stroke-width="2"/>';
+  // 离群点
+  rows.forEach(function(r){
+    if(r.score!==null&&(r.score<S.lo||r.score>S.hi)){
+      svg+='<circle cx="'+X(r.score)+'" cy="'+y+'" r="5" fill="'+(r.score>100?"#E8433A":"#E8A200")+'" stroke="#3A3432" stroke-width="1.5" stroke-width="1"/>';
+      svg+='<text x="'+X(r.score)+'" y="'+(y-34)+'" fill="#E8433A" font-size="10" text-anchor="middle">'+r.name+' '+r.score+'</text>';
+    }
+  });
+  svg+='<text x="'+padL+'" y="200" fill="#94897B" font-size="11">IQR 阈值带：['+f1(S.lo)+', '+f1(S.hi)+']</text>';
+  svg+='<text x="'+padL+'" y="218" fill="#38c8e8" font-size="11">虚线为 Q1−1.5·IQR 与 Q3+1.5·IQR</text>';
+  svg+='</svg>';
+  document.getElementById("boxBox").innerHTML=svg;
+}
+
+/* ---- 02 IQR 检测 ---- */
+function renderIqr(S){
+  document.getElementById("kv").textContent=f1(K);
+  var kpi=[["下限 Q1−k·IQR",f1(S.lo)],["上限 Q3+k·IQR",f1(S.hi)],["IQR",f1(S.iqr)],["离群条数",S.iqrOut.length+" 条"]];
+  document.getElementById("iqrKpi").innerHTML=kpi.map(function(k,i){
+    return '<div class="kpi'+(i===3&&S.iqrOut.length?" hot":"")+'"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>';
+  }).join("");
+  document.getElementById("iqrCnt").textContent=S.iqrOut.length+" 条";
+  var t='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>偏离方向</th><th>z 分数</th><th>分类</th></tr>';
+  S.iqrOut.forEach(function(r){
+    var z=(r.score-S.mu)/S.sd;
+    t+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td><b>'+r.score+'</b></td><td>'+(r.score>S.hi?"高于上限":"低于下限")+'</td><td>'+f2(z)+'</td><td>'+tag(classify(r,S))+'</td></tr>';
+  });
+  if(!S.iqrOut.length) t+='<tr><td colspan="6" style="color:var(--tx2)">当前参数下未检出离群记录</td></tr>';
+  document.getElementById("tblIqr").innerHTML=t;
+  var names=S.iqrOut.map(function(r){return r.name+"（"+r.score+"分）";}).join("、")||"无";
+  document.getElementById("iqrInsight").innerHTML=
+    "IQR 基于分位数、对极端值稳健：本次检出 "+S.iqrOut.length+" 条离群 —— "+names+"。"+
+    "调整 k 可观察阈值带与离群集合的变化（见「敏感性分析」页签）。";
+}
+
+/* ---- 03 3σ 检测 ---- */
+function renderSig(S){
+  document.getElementById("zv").textContent=f1(Z);
+  var kpi=[["下限 μ−z·s",f1(S.zlo)],["上限 μ+z·s",f1(S.zhi)],["μ / s",f2(S.mu)+" / "+f2(S.sd)],["离群条数",S.sigOut.length+" 条"]];
+  document.getElementById("sigKpi").innerHTML=kpi.map(function(k,i){
+    return '<div class="kpi'+(i===3&&S.sigOut.length?" hot":"")+'"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>';
+  }).join("");
+  document.getElementById("sigCnt").textContent=S.sigOut.length+" 条";
+  var t='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>z 分数</th><th>偏离方向</th><th>分类</th></tr>';
+  S.sigOut.forEach(function(r){
+    var z=(r.score-S.mu)/S.sd;
+    t+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td><b>'+r.score+'</b></td><td>'+f2(z)+'</td><td>'+(r.score>S.zhi?"高于上限":"低于下限")+'</td><td>'+tag(classify(r,S))+'</td></tr>';
+  });
+  if(!S.sigOut.length) t+='<tr><td colspan="6" style="color:var(--tx2)">当前参数下未检出离群记录</td></tr>';
+  document.getElementById("tblSig").innerHTML=t;
+  document.getElementById("sigInsight").innerHTML=
+    "极端值 990 分把均值拉高至 "+f2(S.mu)+"、标准差放大至 "+f2(S.sd)+"，3σ 区间因此过宽（["+f1(S.zlo)+", "+f1(S.zhi)+"]），"+
+    "对 99 分的真实高分「漏检」。这说明 3σ 法对极端值敏感，需与 IQR 并列对照。";
+}
+
+/* ---- 04 双法对照 ---- */
+function renderCmp(S){
+  var kpi=[["IQR 离群",S.iqrOut.length+" 条"],["3σ 离群",S.sigOut.length+" 条"],["两法一致",S.inter.length+" 条"],["不一致",S.onlyIqr.length+S.onlySig.length+" 条"]];
+  document.getElementById("cmpKpi").innerHTML=kpi.map(function(k,i){
+    return '<div class="kpi'+(i===3?" hot":"")+'"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>';
+  }).join("");
+  var t='<tr><th>方法</th><th>规则</th><th>阈值带</th><th>离群记录</th></tr>'+
+    '<tr><td>IQR 四分位距法</td><td>Q1−k·IQR ~ Q3+k·IQR</td><td>['+f1(S.lo)+', '+f1(S.hi)+']</td><td>'+S.iqrOut.map(nm).join("、")+'</td></tr>'+
+    '<tr><td>3σ 均值标准差法</td><td>μ−z·s ~ μ+z·s</td><td>['+f1(S.zlo)+', '+f1(S.zhi)+']</td><td>'+S.sigOut.map(nm).join("、")+'</td></tr>';
+  document.getElementById("tblCmp").innerHTML=t;
+  document.getElementById("cmpInsight").innerHTML=
+    "两法交集 "+S.inter.length+" 条"+(S.inter.length?("（"+S.inter.map(nm).join("、")+"）"):"")+
+    "，仅 IQR 检出 "+S.onlyIqr.length+" 条，仅 3σ 检出 "+S.onlySig.length+" 条。IQR 对极端值更稳健，多识别真实异常。";
+  var t2='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>IQR 判定</th><th>3σ 判定</th><th>差异说明</th></tr>';
+  var diff=S.onlyIqr.concat(S.onlySig);
+  diff.forEach(function(r){
+    t2+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td><b>'+r.score+'</b></td>'+
+      '<td>'+(S.iqrOut.indexOf(r)>=0?"离群":"正常")+'</td><td>'+(S.sigOut.indexOf(r)>=0?"离群":"正常")+'</td>'+
+      '<td>极端值推高 μ 与 s，3σ 区间过宽导致漏检/误判</td></tr>';
+  });
+  if(!diff.length) t2+='<tr><td colspan="6" style="color:var(--tx2)">当前参数下两法结论完全一致</td></tr>';
+  document.getElementById("tblDiff").innerHTML=t2;
+}
+function nm(r){return r.name+"（"+r.score+"）";}
+
+/* ---- 05 稳健策略 ---- */
+function renderStrategy(S){
+  var st=strategyStats(S);
+  var t='<tr><th>策略</th><th>样本数</th><th>处理后均值</th><th>处理后标准差</th><th>名次翻转</th><th>适用建议</th></tr>';
+  var advice={"不处理":"对照基准","剔除":"仅确认录入错误","截断":"保留样本量","替换":"替换为中位数"};
+  st.forEach(function(s){
+    t+='<tr><td>'+s.name+'</td><td>'+s.n+'</td><td>'+f2(s.mean)+'</td><td>'+f2(s.sd)+'</td><td>'+s.flips+' 条</td><td>'+advice[s.name]+'</td></tr>';
+  });
+  document.getElementById("tblStrategy").innerHTML=t;
+  // 名次影响明细（按处理前名次前15）
+  var base=rows.filter(function(r){return r.score!==null&&r.score>=0&&r.score<=100;});
+  var m1=rankMap(validScores());
+  var sorted=base.slice().sort(function(a,b){return b.score-a.score;}).slice(0,15);
+  var outScores=S.iqrOut.map(function(r){return r.score;});
+  var med=quantile(validScores().filter(function(x){return outScores.indexOf(x)<0;}),0.5);
+  var t2='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>原名次</th><th>剔除后</th><th>截断后</th><th>替换后</th></tr>';
+  sorted.forEach(function(r){
+    function rn(arr){var m=rankMap(arr);return m[r.score]!==undefined?m[r.score]:"—";}
+    var aDel=validScores().filter(function(x){return outScores.indexOf(x)<0;});
+    var aCap=validScores().map(function(x){return Math.max(S.lo,Math.min(S.hi,x));});
+    var aRep=validScores().map(function(x){return outScores.indexOf(x)>=0?med:x;});
+    t2+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td>'+r.score+'</td><td>'+m1[r.score]+'</td>'+
+      '<td>'+rn(aDel)+'</td>'+
+      '<td>'+rn(aCap)+'</td><td>'+rn(aRep)+'</td></tr>';
+  });
+  document.getElementById("tblRank").innerHTML=t2;
+}
+
+/* ---- 06 敏感性分析 ---- */
+function renderSens(S){
+  var vs=validScores();
+  var ks=[1.0,1.25,1.5,2.0,2.5,3.0];
+  var t='<tr><th>k</th><th>下限</th><th>上限</th><th>离群条数</th><th>离群记录</th></tr>';
+  var series=[];
+  ks.forEach(function(k){
+    var lo=S.q1-k*S.iqr, hi=S.q3+k*S.iqr;
+    var o=vs.filter(function(x){return x<lo||x>hi;});
+    t+='<tr><td><b>'+f1(k)+'</b></td><td>'+f1(lo)+'</td><td>'+f1(hi)+'</td><td>'+o.length+'</td><td>'+(o.join("、")||"—")+'</td></tr>';
+    series.push({label:"k="+f1(k),n:o.length});
+  });
+  document.getElementById("tblK").innerHTML=t;
+  var zs=[2.0,2.5,3.0,3.5];
+  var t2='<tr><th>z</th><th>下限</th><th>上限</th><th>离群条数</th><th>离群记录</th></tr>';
+  var series2=[];
+  zs.forEach(function(z){
+    var lo=S.mu-z*S.sd, hi=S.mu+z*S.sd;
+    var o=vs.filter(function(x){return x<lo||x>hi;});
+    t2+='<tr><td><b>'+f1(z)+'</b></td><td>'+f1(lo)+'</td><td>'+f1(hi)+'</td><td>'+o.length+'</td><td>'+(o.join("、")||"—")+'</td></tr>';
+    series2.push({label:"z="+f1(z),n:o.length});
+  });
+  document.getElementById("tblZ").innerHTML=t2;
+  // 简单条形图
+  var all=series.concat(series2), mx=Math.max.apply(null,all.map(function(s){return s.n;}))||1;
+  var w=700,h=190,pad=40,bw=(w-pad*2)/all.length;
+  var svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%">';
+  all.forEach(function(s,i){
+    var bh=(h-60)*s.n/mx, x=pad+i*bw+3, col=i<series.length?"#FF5A4E":"#9B6EF3";
+    svg+='<rect x="'+x+'" y="'+(h-30-bh)+'" width="'+(bw-6)+'" height="'+Math.max(bh,s.n?2:0)+'" rx="3" fill="'+col+'" opacity="0.85"/>';
+    svg+='<text x="'+(x+(bw-6)/2)+'" y="'+(h-34-bh)+'" fill="#3A3432" font-size="11" text-anchor="middle">'+s.n+'</text>';
+    svg+='<text x="'+(x+(bw-6)/2)+'" y="'+(h-14)+'" fill="#94897B" font-size="9" text-anchor="middle">'+s.label+'</text>';
+  });
+  svg+='<rect x="'+pad+'" y="4" width="10" height="10" fill="#FF5A4E" rx="3"/><text x="'+(pad+14)+'" y="13" fill="#94897B" font-size="10">IQR 扫描</text>';
+  svg+='<rect x="'+(pad+90)+'" y="4" width="10" height="10" fill="#9B6EF3" rx="3"/><text x="'+(pad+104)+'" y="13" fill="#94897B" font-size="10">3σ 扫描</text>';
+  svg+='</svg>';
+  document.getElementById("sensChart").innerHTML=svg;
+}
+
+/* ---- 07 复核清单 ---- */
+function renderReview(S){
+  var flagged=rows.filter(function(r){return classify(r,S)!=="正常";});
+  var t='<tr><th>学号</th><th>姓名</th><th>成绩</th><th>分类</th><th>判定依据</th><th>复核结论</th></tr>';
+  flagged.forEach(function(r){
+    var c=classify(r,S);
+    var why={"录入错误":"超出 [0,100] 有效分值区间","高分离群":"高于 IQR 上限 "+f1(S.hi),
+             "低分待复核":"低于 IQR 下限 "+f1(S.lo),"缺失":"成绩为空，未参与统计"}[c];
+    var cur=review[r.id]||"待复核";
+    t+='<tr><td>'+r.id+'</td><td>'+r.name+'</td><td><b>'+(r.score===null?"—":r.score)+'</b></td><td>'+tag(c)+'</td><td style="white-space:normal">'+why+'</td>'+
+       '<td><select onchange="review[\''+r.id+'\']=this.value">' +
+       reviewOptions.map(function(o){return '<option'+(o===cur?" selected":"")+'>'+o+'</option>';}).join("")+'</select></td></tr>';
+  });
+  if(!flagged.length) t='<tr><td style="color:var(--tx2)">当前数据未检出需要复核的记录</td></tr>';
+  document.getElementById("tblReview").innerHTML=t;
+}
+
+/* ---- 08 产物导出 ---- */
+function renderReport(S){
+  var st=strategyStats(S);
+  var html='<div style="max-height:260px;overflow:auto;border:2px solid var(--line);border-radius:12px;padding:14px;background:#FFF3D6">';
+  html+='<b style="color:var(--acc)">学生成绩离群点检测报告（摘要）</b><br><br>';
+  html+='数据规模：共 '+S.n+' 条，有效 '+S.nValid+' 条，缺失 '+S.nMiss+' 条<br>';
+  html+='描述统计：均值 '+f2(S.mean)+' · 标准差 '+f2(S.sd)+' · 中位数 '+f1(S.med)+' · 偏度 '+f2(S.skew)+'<br>';
+  html+='IQR 法（k='+f1(K)+'）：阈值带 ['+f1(S.lo)+', '+f1(S.hi)+']，离群 '+S.iqrOut.length+' 条 —— '+S.iqrOut.map(nm).join("、")+'<br>';
+  html+='3σ 法（z='+f1(Z)+'）：阈值带 ['+f1(S.zlo)+', '+f1(S.zhi)+']，离群 '+S.sigOut.length+' 条 —— '+S.sigOut.map(nm).join("、")+'<br>';
+  html+='两法不一致 '+S.onlyIqr.length+' 条；策略对比：'+st.map(function(s){return s.name+"(n="+s.n+", μ="+f2(s.mean)+", s="+f2(s.sd)+", 翻转"+s.flips+")";}).join("；")+'<br>';
+  html+='结论：IQR 对极端值更稳健，建议以 IQR 为主、3σ 对照，人工复核后处理。<br>';
+  html+='生成时间：'+new Date().toLocaleString('zh-CN')+'</div>';
+  document.getElementById("repPreview").innerHTML=html;
+}
+
+function download(name,content,type){
+  var b=new Blob([content],{type:type||"text/plain;charset=utf-8"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},800);
+}
+function csvOf(headers,rowsData){
+  return "\ufeff"+[headers.join(",")].concat(rowsData.map(function(r){
+    return r.map(function(c){c=String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(",");
+  })).join("\n");
+}
+function expCsv(kind){
+  var S=computeAll();
+  if(kind==="summary"){
+    var st=strategyStats(S);
+    download("检测汇总表.csv",csvOf(["策略","样本数","处理后均值","处理后标准差","名次翻转"],
+      st.map(function(s){return [s.name,s.n,f2(s.mean),f2(s.sd),s.flips];})),"text/csv");
+  }else if(kind==="detail"){
+    download("成绩明细表.csv",csvOf(["学号","姓名","成绩","分类"],
+      rows.map(function(r){return [r.id,r.name,r.score===null?"":r.score,classify(r,S)];})),"text/csv");
+  }else{
+    var flagged=rows.filter(function(r){return classify(r,S)!=="正常";});
+    download("复核清单.csv",csvOf(["学号","姓名","成绩","分类","复核结论"],
+      flagged.map(function(r){return [r.id,r.name,r.score===null?"":r.score,classify(r,S),review[r.id]||"待复核"];})),"text/csv");
+  }
+}
+function expReport(){
+  var S=computeAll(), st=strategyStats(S);
+  var h='<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>学生成绩离群点检测报告</title>'+
+    '<style>body{font-family:"Microsoft YaHei",sans-serif;max-width:820px;margin:40px auto;color:#222;line-height:1.8}h1{font-size:22px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:14px}th{background:#f0f4ff}</style></head><body>'+
+    '<h1>学生成绩离群点检测报告</h1><p>系统：IQR 离群点检测与稳健处理系统 V1.0 · 生成时间 '+new Date().toLocaleString('zh-CN')+'</p>'+
+    '<h3>一、数据概览</h3><p>共 '+S.n+' 条记录，有效 '+S.nValid+' 条，缺失 '+S.nMiss+' 条；均值 '+f2(S.mean)+'，标准差 '+f2(S.sd)+'，中位数 '+f1(S.med)+'，偏度 '+f2(S.skew)+'。</p>'+
+    '<h3>二、双法检测</h3><p>IQR 法（k='+f1(K)+'）：阈值带 ['+f1(S.lo)+', '+f1(S.hi)+']，离群 '+S.iqrOut.length+' 条：'+S.iqrOut.map(nm).join("、")+'。<br>3σ 法（z='+f1(Z)+'）：阈值带 ['+f1(S.zlo)+', '+f1(S.zhi)+']，离群 '+S.sigOut.length+' 条：'+S.sigOut.map(nm).join("、")+'。</p>'+
+    '<h3>三、稳健策略对比</h3><table><tr><th>策略</th><th>样本数</th><th>均值</th><th>标准差</th><th>名次翻转</th></tr>'+
+    st.map(function(s){return '<tr><td>'+s.name+'</td><td>'+s.n+'</td><td>'+f2(s.mean)+'</td><td>'+f2(s.sd)+'</td><td>'+s.flips+'</td></tr>';}).join("")+'</table>'+
+    '<h3>四、人工复核清单</h3><table><tr><th>学号</th><th>姓名</th><th>成绩</th><th>分类</th><th>复核结论</th></tr>'+
+    rows.filter(function(r){return classify(r,S)!=="正常";}).map(function(r){return '<tr><td>'+r.id+'</td><td>'+r.name+'</td><td>'+(r.score===null?"—":r.score)+'</td><td>'+classify(r,S)+'</td><td>'+(review[r.id]||"待复核")+'</td></tr>';}).join("")+'</table>'+
+    '<h3>五、结论与建议</h3><p>IQR 基于分位数、对极端值稳健，作为主要判定依据；3σ 法对照使用。离群记录只标记、人工复核，绝不自动删除；确认录入错误后方可剔除或修正。</p>'+
+    '<p style="color:#888">IQR 离群点检测与稳健处理系统 V1.0 · 纯前端本地运行</p></body></html>';
+  download("学生成绩离群点检测报告.html",h,"text/html");
+}
+
+/* ---- CSV 导入 ---- */
+function importCSV(input){
+  var f=input.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var lines=String(rd.result).replace(/^\ufeff/,"").split(/\r?\n/).filter(function(l){return l.trim();});
+    var newRows=[];
+    lines.forEach(function(line,i){
+      var c=line.split(",").map(function(s){return s.trim().replace(/^"|"$/g,"");});
+      if(i===0 && /姓名|学号|成绩/.test(c.join(""))) return; // 跳过表头
+      var score=null;
+      if(c.length>=3) score=c[2]===""?null:parseFloat(c[2]);
+      else if(c.length===2) score=isNaN(parseFloat(c[1]))?null:parseFloat(c[1]);
+      else if(c.length===1) score=c[0]===""?null:parseFloat(c[0]);
+      if(score!==null&&isNaN(score)) score=null;
+      newRows.push({id:c[0]||("R"+(i+1)),name:c[1]||("记录"+(i+1)),score:score});
+    });
+    if(!newRows.length){alert("未解析到有效数据，请使用格式：学号,姓名,成绩");return;}
+    rows=newRows; review={}; refresh();
+    alert("已导入 "+newRows.length+" 条记录。");
+  };
+  rd.readAsText(f,"UTF-8");
+  input.value="";
+}
+
+/* ---- 参数联动 ---- */
+function onK(){ K=parseFloat(document.getElementById("kSlider").value); refresh(); }
+function onZ(){ Z=parseFloat(document.getElementById("zSlider").value); refresh(); }
+
+/* ---- 页签切换 ---- */
+document.getElementById("tabs").addEventListener("click",function(e){
+  var b=e.target.closest("button"); if(!b) return;
+  document.querySelectorAll("#tabs button").forEach(function(x){x.classList.remove("on");});
+  b.classList.add("on");
+  document.querySelectorAll("main section").forEach(function(s,i){s.classList.toggle("on",i===+b.dataset.t);});
+});
+
+/* ---- AI 助手（可选功能：不填密钥走内置口径问答库） ---- */
+function toggleAI(){
+  var p=document.getElementById("aiPanel");
+  p.classList.toggle("open");
+  document.getElementById("aiBtn").style.display=p.classList.contains("open")?"none":"block";
+}
+function addMsg(who,text,me){
+  var d=document.createElement("div");
+  d.className="msg"+(me?" me":"");
+  d.innerHTML='<div class="who">'+who+'</div><div class="bub">'+text+'</div>';
+  document.getElementById("aiBody").appendChild(d);
+  document.getElementById("aiBody").scrollTop=1e9;
+}
+function builtinQA(q,S){
+  q=q.toLowerCase();
+  var qa=[
+    [/iqr|四分位|离群|怎么判|规则/, "IQR（四分位距）检测规则：Q1−k·IQR ~ Q3+k·IQR 之外判为离群。当前数据 Q1="+f1(S.q1)+"、Q3="+f1(S.q3)+"、IQR="+f1(S.iqr)+"，k="+f1(K)+"，阈值带 ["+f1(S.lo)+", "+f1(S.hi)+"]，检出 "+S.iqrOut.length+" 条离群。IQR 基于分位数、对极端值稳健。"],
+    [/3σ|3sigma|标准差法|均值法|sigma/, "3σ 法规则：μ±z·s 之外判为离群。当前 μ="+f2(S.mu)+"、s="+f2(S.sd)+"，z="+f1(Z)+"，阈值带 ["+f1(S.zlo)+", "+f1(S.zhi)+"]，检出 "+S.sigOut.length+" 条。注意极端值会推高 μ 和 s，使区间过宽而漏检真实异常，故与 IQR 并列对照。"],
+    [/99/, "99 分未被 3σ 判离群（被漏检）的原因：990 分极端值把均值拉高至 "+f2(S.mu)+"、标准差放大至 "+f2(S.sd)+"，3σ 区间过宽。但 IQR 法不受极端值影响，能正确识别 99 分为高分离群 —— 这正是双法对照的价值。"],
+    [/990|录入/, "990 分超出 [0,100] 有效分值区间，分类为「录入错误」，已列入复核清单。建议经人工确认后修正或剔除，系统绝不自动删除。"],
+    [/剔除|截断|替换|策略|处理/, "三类稳健策略：①剔除——样本量减少，仅建议用于确认的录入错误；②截断——把离群值截断到阈值带边界，保留样本量；③替换——以中位数替换离群值。对比见「稳健策略」页签，截断与替换保持样本量不变。"],
+    [/名次|排名|翻转/, "名次翻转统计策略处理前后名次发生变化的学生人数。极端值（如 990 分）会显著影响均值与排名，剔除后其余学生名次整体前移，详见「稳健策略」页签的名次影响明细。"],
+    [/敏感|k 是|k值|z值|档位/, "敏感性分析：k 取 1.0~3.0、z 取 2.0~3.5 扫描，观察离群条数与集合的稳定性。k 越大阈值带越宽、离群越少；3σ 区间对极端值更敏感，详见「敏感性分析」页签。"],
+    [/缺失|空|null/, "缺失成绩不参与统计计算，单独分类为「缺失」并列入复核清单。当前数据缺失 "+S.nMiss+" 条。"],
+    [/偏度|分布/, "当前偏度为 "+f2(S.skew)+"，分布显著右偏：极端高分拉动均值高于中位数。偏态分布下 IQR 法比 3σ 法更可靠。"],
+    [/导出|保存|存档|丢/, "数据只存于浏览器内存，刷新页面会丢失（含导入数据与复核结论）。请到「产物导出」页签导出检测报告、汇总表、明细表或复核清单存档。"],
+    [/导入|csv|数据/, "支持导入本地 CSV：到「数据概览」页签点「导入本地 CSV」，格式为 学号,姓名,成绩（首行表头自动跳过）。也可点「恢复示例数据」还原内置 60 条示例。"],
+    [/ai|助手|密钥|api/, "AI 助手是可选功能：不填 API Key 时使用内置口径问答库（即当前模式），核心计算完全不受影响；填入兼容 OpenAI 接口的 Key 后可自由提问。"],
+    [/版本|关于|开发|谁做/, "IQR 离群点检测与稳健处理系统 V1.0，单文件网页版应用：纯前端本地运行，支持 CSV 导入导出、IQR+3σ 双法检测、三类稳健策略与人工复核清单。"]
+  ];
+  for(var i=0;i<qa.length;i++){ if(qa[i][0].test(q)) return qa[i][1]; }
+  return "这个问题超出了内置口径问答库的范围。可尝试询问：IQR 规则、3σ 法、99/990 分案例、稳健策略、名次翻转、敏感性分析、缺失处理、导入导出等。也可以在上方填入 API Key 启用在线模型。";
+}
+function askAI(){
+  var inp=document.getElementById("aiInput");
+  var q=inp.value.trim(); if(!q) return;
+  inp.value="";
+  addMsg("我",q,true);
+  var S=computeAll();
+  var key=document.getElementById("aiKey").value.trim();
+  if(!key){
+    setTimeout(function(){addMsg("助手（内置口径库）",builtinQA(q,S));},300);
+    return;
+  }
+  addMsg("助手","正在调用在线模型……");
+  fetch("https://api.openai.com/v1/chat/completions",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+    body:JSON.stringify({model:"gpt-4o-mini",messages:[
+      {role:"system",content:"你是学生成绩离群点检测系统的助手。当前数据：n="+S.n+",有效="+S.nValid+",缺失="+S.nMiss+",均值="+f2(S.mean)+",标准差="+f2(S.sd)+",Q1="+f1(S.q1)+",Q3="+f1(S.q3)+",IQR带=["+f1(S.lo)+","+f1(S.hi)+"],IQR离群"+S.iqrOut.length+"条,3σ离群"+S.sigOut.length+"条。用简洁中文回答口径问题。"},
+      {role:"user",content:q}]})
+  }).then(function(r){return r.json();}).then(function(j){
+    document.getElementById("aiBody").lastChild.querySelector(".bub").textContent=(j.choices&&j.choices[0])?j.choices[0].message.content:"调用失败，请检查 Key 或网络。";
+  }).catch(function(){document.getElementById("aiBody").lastChild.querySelector(".bub").textContent="网络调用失败，可清空 Key 使用内置口径问答库。";});
+}
+
+/* ---- 启动 ---- */
+loadSample();
+</script>
+</body>
+</html>
